@@ -1,6 +1,5 @@
 // app/login.js - VERSION AMÉLIORÉE SANS POPUPS
 import React, { useState } from "react";
-import { FIREBASE_AUTH } from "@/configuration/FirebaseConfig";
 import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
@@ -21,6 +20,8 @@ import {
   Animated,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { FIREBASE_AUTH, FIREBASE_FIRESTORE } from '../configuration/FirebaseConfig';
+import { doc, getDoc } from 'firebase/firestore';
 
 const logo = require("./assets/images/logo.png");
 
@@ -47,7 +48,6 @@ export default function Login() {
     setPasswordError("");
     setError("");
   };
-
 const handleLogin = async () => {
   // Réinitialiser les erreurs
   setError("");
@@ -73,10 +73,20 @@ const handleLogin = async () => {
       password
     );
     console.log("✅ Connexion réussie:", userCredential.user.email);
-    // Navigate to home or dashboard
-    router.push("/home");
+    
+    // Vérifier si l'onboarding est complété
+    const userDoc = await getDoc(doc(FIREBASE_FIRESTORE, 'users', userCredential.user.uid));
+    
+    if (userDoc.exists() && userDoc.data().onboardingCompleted) {
+      console.log("✅ Onboarding complété → /home");
+      router.replace('/screens/home');
+    } else {
+      console.log("⏳ Onboarding non complété → /screens/onboarding/Welcome");
+      router.replace('/screens/onboarding/Welcome');
+    }
+    
   } catch (error) {
-    // On affiche l'erreur en mode développement seulement
+    // ... reste du code d'erreur inchangé
     if (__DEV__) {
       console.log("⚠️ Erreur de connexion:", error.code);
     }
@@ -91,7 +101,6 @@ const handleLogin = async () => {
       case "auth/user-not-found":
       case "auth/wrong-password":
       case "auth/invalid-credential":
-        // On groupe ces erreurs pour ne pas donner d'indices
         setError("Email ou mot de passe incorrect");
         break;
       case "auth/too-many-requests":
@@ -107,6 +116,7 @@ const handleLogin = async () => {
     setLoading(false);
   }
 };
+
   const handleGoogleLogin = async () => {
     setError("");
     setLoading(true);
@@ -297,7 +307,7 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: "center",
-    marginBottom: 48,
+    marginBottom: 20,
   },
   logoWrapper: {
     width: 120,

@@ -7,7 +7,10 @@ export default function RootLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="login" />
       <Stack.Screen name="Signup" />
-      {/* Add more screens here as needed */}
+      <Stack.Screen name="screens/onboarding/Welcome" />
+      <Stack.Screen name="screens/onboarding/PayFrequency" />
+      <Stack.Screen name="screens/onboarding/NetIncome" />
+      <Stack.Screen name="home" />
     </Stack>
   );
 }

@@ -21,6 +21,7 @@ import {
   Image,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { FIREBASE_FIRESTORE } from "../configuration/FirebaseConfig";
 
 const logo = require("./assets/images/logo.png");
 
@@ -128,48 +129,52 @@ export default function Signup() {
     return isValid;
   };
 
-  const handleSignup = async () => {
-    if (!validateForm()) {
-      return;
+const handleSignup = async () => {
+  if (!validateForm()) {
+    return;
+  }
+
+  setLoading(true);
+  try {
+    const userCredential = await createUserWithEmailAndPassword(
+      auth,
+      email,
+      password
+    );
+
+    await updateProfile(userCredential.user, {
+      displayName: fullName,
+    });
+
+    console.log("✅ Inscription réussie:", userCredential.user.email);
+    console.log("🚀 Redirection vers onboarding");
+    
+    // Rediriger vers l'onboarding
+    router.replace('/screens/onboarding/Welcome');
+    
+  } catch (error) {
+    console.error("❌ Erreur inscription:", error);
+
+    switch (error.code) {
+      case "auth/email-already-in-use":
+        setEmailError("Cet email est déjà utilisé");
+        break;
+      case "auth/invalid-email":
+        setEmailError("Email invalide");
+        break;
+      case "auth/operation-not-allowed":
+        setError("L'inscription par email est désactivée");
+        break;
+      case "auth/weak-password":
+        setPasswordError("Le mot de passe est trop faible");
+        break;
+      default:
+        setError("Une erreur est survenue lors de l'inscription");
     }
-
-    setLoading(true);
-    try {
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
-
-      await updateProfile(userCredential.user, {
-        displayName: fullName,
-      });
-
-      console.log("Signup successful", userCredential.user);
-      // router.push("/home");
-    } catch (error) {
-      console.error("Signup error:", error);
-
-      switch (error.code) {
-        case "auth/email-already-in-use":
-          setEmailError("Cet email est déjà utilisé");
-          break;
-        case "auth/invalid-email":
-          setEmailError("Email invalide");
-          break;
-        case "auth/operation-not-allowed":
-          setError("L'inscription par email est désactivée");
-          break;
-        case "auth/weak-password":
-          setPasswordError("Le mot de passe est trop faible");
-          break;
-        default:
-          setError("Une erreur est survenue lors de l'inscription");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleGoogleSignup = async () => {
     if (!acceptedTerms) {
