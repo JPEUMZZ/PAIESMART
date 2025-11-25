@@ -29,8 +29,9 @@ export default function RootLayout() {
          title: 'Confirmer le paiement',
          presentation: 'modal',
          }} 
-/>
-      
+      />
+      <Stack.Screen name="screens/AddIncome" options={{ title: 'Ajouter un revenu' }} />
+      <Stack.Screen name="screens/AddExpense" options={{ title: 'Ajouter une dépense' }} />
       {/* Home */}
       <Stack.Screen name="screens/home" />
     </Stack>

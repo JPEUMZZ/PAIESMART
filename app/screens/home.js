@@ -8,8 +8,10 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { FIREBASE_AUTH, FIREBASE_FIRESTORE } from '../../configuration/FirebaseConfig';
 import { doc, getDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
@@ -21,6 +23,7 @@ export default function Home() {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
   
   // Hook pour les notifications
   const { scheduleNotifications, sendTestNotification } = useNotifications();
@@ -48,6 +51,14 @@ export default function Home() {
   useEffect(() => {
     loadUserData();
   }, []);
+
+  // NOUVEAU - Recharger les données quand on revient sur cet écran
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log('📍 Home screen focused - Recharging data...');
+      loadUserData();
+    }, [])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -91,6 +102,17 @@ export default function Home() {
     } catch (error) {
       alert('❌ Erreur: ' + error.message);
     }
+  };
+
+  // NOUVEAU - Fonctions pour ajouter revenu/dépense
+  const handleAddIncome = () => {
+    setShowAddModal(false);
+    router.push('/screens/AddIncome');
+  };
+
+  const handleAddExpense = () => {
+    setShowAddModal(false);
+    router.push('/screens/AddExpense');
   };
 
   const handleLogout = async () => {
@@ -141,31 +163,21 @@ export default function Home() {
   const availableMoney = budgetCalcs.availableAfterExpenses || 0;
 
   // Trouver la prochaine paie (la plus proche)
-const normalizeDate = (d) => {
-  const date = new Date(d);
-  date.setHours(0, 0, 0, 0);
-  return date;
-};
+  const getNextPayday = () => {
+    if (incomeSources.length === 0) return null;
+    
+    const futureDates = incomeSources
+      .map(source => new Date(source.nextPayday))
+      .filter(date => date >= new Date())
+      .sort((a, b) => a - b);
+    
+    return futureDates.length > 0 ? futureDates[0] : null;
+  };
 
-const getNextPayday = () => {
-  if (!incomeSources || incomeSources.length === 0) return null;
-
-  const today = normalizeDate(new Date());
-
-  const futureDates = incomeSources
-    .map(source => normalizeDate(source.nextPayday))
-    .filter(date => date >= today)
-    .sort((a, b) => a - b);
-
-  return futureDates.length > 0 ? futureDates[0] : null;
-};
-
-const nextPayday = getNextPayday();
-
-const daysUntilPayday = nextPayday
-  ? Math.ceil((nextPayday - normalizeDate(new Date())) / (1000 * 60 * 60 * 24))
-  : 0;
-
+  const nextPayday = getNextPayday();
+  const daysUntilPayday = nextPayday
+    ? Math.ceil((nextPayday - new Date()) / (1000 * 60 * 60 * 24))
+    : 0;
 
   // Labels de fréquence
   const frequencyLabels = {
@@ -414,7 +426,7 @@ const daysUntilPayday = nextPayday
             title="Ajouter"
             subtitle="Revenu ou dépense"
             color="#48BB78"
-            onPress={() => console.log('Ajouter')}
+            onPress={() => setShowAddModal(true)}
           />
           <ActionCard
             icon="📊"
@@ -466,6 +478,53 @@ const daysUntilPayday = nextPayday
 
       {/* Footer spacing */}
       <View style={{ height: 40 }} />
+
+      {/* Modal de choix Ajouter */}
+      <Modal
+        visible={showAddModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowAddModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowAddModal(false)}
+        >
+          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+            <Text style={styles.modalTitle}>Que veux-tu ajouter?</Text>
+            
+            <TouchableOpacity style={styles.modalOptionIncome} onPress={handleAddIncome}>
+              <View style={styles.modalOptionIcon}>
+                <Text style={styles.modalOptionEmoji}>💰</Text>
+              </View>
+              <View style={styles.modalOptionText}>
+                <Text style={styles.modalOptionTitle}>Source de revenu</Text>
+                <Text style={styles.modalOptionSubtitle}>Salaire, freelance, investissements...</Text>
+              </View>
+              <Text style={styles.modalOptionArrow}>→</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.modalOptionExpense} onPress={handleAddExpense}>
+              <View style={styles.modalOptionIcon}>
+                <Text style={styles.modalOptionEmoji}>💳</Text>
+              </View>
+              <View style={styles.modalOptionText}>
+                <Text style={styles.modalOptionTitle}>Dépense récurrente</Text>
+                <Text style={styles.modalOptionSubtitle}>Loyer, abonnements, factures...</Text>
+              </View>
+              <Text style={styles.modalOptionArrow}>→</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modalCancelButton}
+              onPress={() => setShowAddModal(false)}
+            >
+              <Text style={styles.modalCancelText}>Annuler</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </ScrollView>
   );
 }
@@ -1027,5 +1086,86 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#92400E',
     lineHeight: 20,
+  },
+
+  // Modal de choix
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1A202C',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  modalOptionIncome: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FFF4',
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: '#48BB78',
+  },
+  modalOptionExpense: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF5F5',
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: '#E53E3E',
+  },
+  modalOptionIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  modalOptionEmoji: {
+    fontSize: 32,
+  },
+  modalOptionText: {
+    flex: 1,
+  },
+  modalOptionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1A202C',
+    marginBottom: 4,
+  },
+  modalOptionSubtitle: {
+    fontSize: 13,
+    color: '#718096',
+  },
+  modalOptionArrow: {
+    fontSize: 24,
+    color: '#718096',
+  },
+  modalCancelButton: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 16,
+    color: '#718096',
+    fontWeight: '600',
   },
 });
